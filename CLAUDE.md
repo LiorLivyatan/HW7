@@ -135,6 +135,14 @@ HW7/
 └── CLAUDE.md                    # This file (assignment guide)
 ```
 
+#### Assignment-Specific Structure Note
+For the Even/Odd League assignment, you may also have a different structure:
+- **`SHARED/`** directory with `config/`, `data/`, `logs/`, and `league_sdk/` (shared resources)
+- **`agents/`** directory with `league_manager/`, `referee_REF01/`, and `player_P01/` (agent implementations)
+- See "Assignment-Specific Requirements" section (line ~941) for full details on the Even/Odd League structure
+
+Both structures are valid - choose based on whether you're following the assignment's Chapter 11 structure or the general course structure. The key is maintaining proper package organization with `__init__.py` files and relative imports.
+
 ### Directory Explanations
 
 #### `/src/my_project/` - Main Package Directory
@@ -940,29 +948,345 @@ Building blocks are a modular approach to software architecture. Each block is a
 
 ## Assignment-Specific Requirements
 
-### [TO BE FILLED WHEN ASSIGNMENT IS PROVIDED]
+### Assignment: Even/Odd League AI Agent (Homework 7)
 
-**Assignment Title**: [TBD]
+#### Overview
+Build an AI Player Agent for the Even/Odd League using the Model Context Protocol (MCP).
 
-**Assignment Description**: [TBD]
+#### Your Task
+Implement a **Player Agent** - an MCP server that:
+1. Listens on a localhost port (e.g., 8101-8104)
+2. Accepts POST requests at `/mcp` using JSON-RPC 2.0
+3. Registers with the League Manager
+4. Participates in Even/Odd games against other players
+5. Follows the `league.v2` protocol exactly
 
-**Specific Requirements**:
-- [TBD]
-- [TBD]
+#### The Even/Odd Game
+- **Players**: 2 players per match
+- **Gameplay**: Each player simultaneously chooses "even" or "odd" (without seeing opponent's choice)
+- **Draw**: Referee draws a random number between 1-10
+- **Winner**: If number is even and player chose "even" → player wins; if odd and chose "odd" → player wins
+- **Scoring**: Win = 3 points, Draw = 1 point, Loss = 0 points
+- **Tournament**: Round-Robin format (each player plays all others)
 
-**Expected Deliverables**:
-- [TBD]
-- [TBD]
+#### Three Agent System
+1. **League Manager** (port 8000) - Manages registration, scheduling, standings *(provided)*
+2. **Referee** (port 8001+) - Manages matches, draws numbers, declares winners *(provided)*
+3. **Player Agent** (port 8101-8104) - **THIS IS WHAT YOU MUST IMPLEMENT**
 
-**Success Criteria**:
-- [TBD]
-- [TBD]
+#### Required Tools (3 mandatory)
+Your Player Agent MCP server MUST implement these tools:
+
+1. **`handle_game_invitation`** (Response time: ≤5 seconds)
+   - Receives: GAME_INVITATION message with match_id, opponent_id, game_type
+   - Returns: GAME_JOIN_ACK with acceptance and arrival timestamp
+
+2. **`choose_parity`** (Response time: ≤30 seconds)
+   - Receives: CHOOSE_PARITY_CALL with context (opponent, standings, deadline)
+   - Returns: CHOOSE_PARITY_RESPONSE with parity_choice: "even" or "odd" (lowercase!)
+
+3. **`notify_match_result`** (Response time: ≤10 seconds)
+   - Receives: GAME_OVER message with winner, drawn_number, all choices
+   - Returns: Acknowledgment, updates internal state
+
+#### Critical Protocol Requirements
+
+**MUST FOLLOW EXACTLY:**
+- ✅ All timestamps in UTC/GMT (ISO-8601 format ending with 'Z')
+- ✅ parity_choice must be lowercase: "even" or "odd"
+- ✅ Include auth_token in all messages after registration
+- ✅ Respond within timeout limits (5s/30s/10s)
+- ✅ Match JSON structures from protocol specification exactly
+- ✅ Use JSON-RPC 2.0 format for all messages
+
+**WILL CAUSE FAILURE:**
+- ❌ Local timezone timestamps (must be UTC!)
+- ❌ "Even" or "Odd" with capital letters
+- ❌ Missing auth_token
+- ❌ Timeout violations
+- ❌ Incorrect JSON structure
+
+#### Message Flow Example
+1. Player registers → League Manager (LEAGUE_REGISTER_REQUEST/RESPONSE)
+2. League Manager announces round → All Players (ROUND_ANNOUNCEMENT)
+3. Referee invites → Player (GAME_INVITATION)
+4. Player confirms → Referee (GAME_JOIN_ACK) *[5s timeout]*
+5. Referee requests choice → Player (CHOOSE_PARITY_CALL)
+6. Player chooses → Referee (CHOOSE_PARITY_RESPONSE) *[30s timeout]*
+7. Referee declares result → Players (GAME_OVER)
+8. Referee reports → League Manager (MATCH_RESULT_REPORT)
+9. League Manager updates → All Players (LEAGUE_STANDINGS_UPDATE)
+
+#### Project Structure (Per Chapter 11)
+```
+HW7/
+├── SHARED/                      # Shared resources (may be provided)
+│   ├── config/                  # system.json, agents_config.json, etc.
+│   ├── data/                    # standings.json, match history, etc.
+│   ├── logs/                    # Structured logs (JSONL format)
+│   └── league_sdk/              # Python SDK (ConfigLoader, JsonLogger, etc.)
+├── agents/
+│   ├── league_manager/          # (may be provided)
+│   ├── referee_REF01/           # (may be provided)
+│   └── player_P01/              # ← YOU IMPLEMENT THIS
+│       ├── main.py              # Entry point, HTTP server setup
+│       ├── handlers.py          # 3 tool implementations
+│       ├── strategy.py          # Strategy logic (random/history/LLM)
+│       └── requirements.txt     # Dependencies
+└── doc/
+    ├── protocol-spec.md         # Reference documentation
+    └── message-examples/        # JSON message examples
+```
+
+**Note**: Align with existing project structure. Your player agent goes in `/src/my_project/agents/player/` or similar.
+
+#### Strategy Options
+1. **Random Strategy** (baseline): `random.choice(["even", "odd"])`
+2. **History-Based**: Track opponent patterns (won't improve win rate statistically)
+3. **LLM-Based**: Use Claude/GPT to decide (interesting but won't help in pure chance game)
+
+**Important**: Even/Odd is pure luck - strategy won't affect long-term win rate. Focus on **correct protocol implementation** first!
+
+#### Testing Requirements (Chapter 6.3)
+Before submission:
+1. Run local league with 4 copies of your agent
+2. Verify all message types handled correctly
+3. Verify JSON structures match protocol exactly
+4. Test stability (no crashes, proper error handling)
+5. (Optional) Test with other students' agents for compatibility
+
+#### Submission Requirements (Chapter 6.5)
+1. **Source code** of the Player Agent
+2. **README** with:
+   - Installation instructions (dependencies via pip/poetry)
+   - Running instructions (how to start on specific port)
+   - Configuration (how to set display name, etc.)
+3. **Detailed report** including:
+   - Architecture and implementation description
+   - Strategy description and rationale
+   - Difficulties encountered and solutions
+   - Development and testing process documentation
+   - Conclusions and recommendations for improvement
+4. **Link to public repository**
+5. **Manual report submission** to exercises checker
+
+#### Evaluation Criteria (Chapter 6.6)
+| Criterion | Description |
+|-----------|-------------|
+| Basic functioning | Agent works, answers messages, plays games |
+| Protocol compatibility | JSON structures match protocol exactly |
+| Stability | No crashes, handles errors gracefully |
+| Code quality | Clean, documented, organized |
+| Documentation | Clear instructions, detailed description |
+| Strategy | Interesting implementation (not just random) |
+
+#### Reference Chapters
+- **Chapter 1**: Introduction to AI Agents and MCP
+- **Chapter 2**: General League Protocol (message envelope, timeouts, error handling)
+- **Chapter 3**: Even/Odd Game Rules and Flow
+- **Chapter 4**: JSON Message Structures (18 message types defined)
+- **Chapter 5**: Implementation Guide (FastAPI examples, state management)
+- **Chapter 6**: Homework Requirements (what to implement and submit)
+- **Chapter 7**: Learning through the Exercise (pedagogical context)
+- **Chapter 8**: Running the League System (ports, terminals, full flow)
+- **Chapter 9**: League Data Protocol (config/, data/, logs/ architecture)
+- **Chapter 10**: Python Toolkit (league_sdk library)
+- **Chapter 11**: Project Structure (directory tree, file organization)
+- **Chapter 12**: References
 
 ---
 
 ## Detailed Implementation Workflow
 
 **This section provides a step-by-step workflow for completing the assignment to achieve 100/100.**
+
+### Phase 0: MCP Server Setup (For Even/Odd League Assignment Only)
+**Time**: Day 0 (4-6 hours)
+**Goal**: Set up the basic HTTP server infrastructure for the Player Agent
+
+**Note**: This phase is specific to the Even/Odd League assignment. Skip if working on a different assignment.
+
+#### Step 0.1: Choose HTTP Framework
+Select one of the following frameworks for your MCP server:
+
+- **FastAPI** (recommended):
+  - Async support built-in
+  - Automatic API documentation
+  - Type hints with Pydantic
+  - `pip install fastapi uvicorn pydantic`
+
+- **Flask** (simpler):
+  - Synchronous, easier to understand
+  - Large community and resources
+  - `pip install flask`
+
+- **aiohttp** (async, lightweight):
+  - Good for async operations
+  - Lower-level than FastAPI
+  - `pip install aiohttp`
+
+#### Step 0.2: Implement Basic MCP Server
+Create `src/my_project/agents/player/main.py`:
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+import uvicorn
+from datetime import datetime
+
+app = FastAPI()
+
+class MCPRequest(BaseModel):
+    jsonrpc: str = "2.0"
+    method: str
+    params: dict = {}
+    id: int = 1
+
+class MCPResponse(BaseModel):
+    jsonrpc: str = "2.0"
+    result: dict = {}
+    id: int = 1
+
+@app.post("/mcp")
+async def mcp_endpoint(request: MCPRequest):
+    """Main MCP endpoint - routes to appropriate tool handler"""
+    if request.method == "handle_game_invitation":
+        result = handle_invitation(request.params)
+    elif request.method == "choose_parity":
+        result = handle_choose_parity(request.params)
+    elif request.method == "notify_match_result":
+        result = handle_result(request.params)
+    else:
+        result = {"error": f"Unknown method: {request.method}"}
+
+    return MCPResponse(result=result, id=request.id)
+
+def handle_invitation(params):
+    """Handle GAME_INVITATION -> return GAME_JOIN_ACK"""
+    # TODO: Implement invitation handling
+    return {
+        "protocol": "league.v2",
+        "message_type": "GAME_JOIN_ACK",
+        "sender": "player:P01",  # TODO: Use actual player_id
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "conversation_id": params.get("conversation_id"),
+        "match_id": params.get("match_id"),
+        "player_id": "P01",  # TODO: Use actual player_id
+        "arrival_timestamp": datetime.utcnow().isoformat() + "Z",
+        "accept": True
+    }
+
+def handle_choose_parity(params):
+    """Handle CHOOSE_PARITY_CALL -> return CHOOSE_PARITY_RESPONSE"""
+    # TODO: Implement strategy
+    import random
+    choice = random.choice(["even", "odd"])
+
+    return {
+        "protocol": "league.v2",
+        "message_type": "CHOOSE_PARITY_RESPONSE",
+        "sender": "player:P01",  # TODO: Use actual player_id
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "conversation_id": params.get("conversation_id"),
+        "match_id": params.get("match_id"),
+        "player_id": "P01",  # TODO: Use actual player_id
+        "parity_choice": choice  # MUST be lowercase "even" or "odd"
+    }
+
+def handle_result(params):
+    """Handle GAME_OVER -> update internal state"""
+    # TODO: Implement state management
+    print(f"Match result received: {params}")
+    return {"status": "acknowledged"}
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8101, help="Port to listen on")
+    args = parser.parse_args()
+
+    print(f"Starting Player Agent MCP server on port {args.port}")
+    uvicorn.run(app, host="localhost", port=args.port)
+```
+
+#### Step 0.3: Test Server Responds
+**Terminal 1** - Start the server:
+```bash
+cd src/my_project/agents/player
+python main.py --port 8101
+```
+
+**Terminal 2** - Test with curl:
+```bash
+# Test basic connectivity
+curl -X POST http://localhost:8101/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"ping","id":1}'
+
+# Test handle_game_invitation
+curl -X POST http://localhost:8101/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"handle_game_invitation",
+    "params":{
+      "conversation_id":"test-001",
+      "match_id":"R1M1"
+    },
+    "id":1
+  }'
+
+# Test choose_parity
+curl -X POST http://localhost:8101/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"choose_parity",
+    "params":{
+      "conversation_id":"test-001",
+      "match_id":"R1M1"
+    },
+    "id":2
+  }'
+```
+
+**Expected**: Server responds with JSON-RPC 2.0 formatted responses.
+
+#### Step 0.4: Implement JSON-RPC 2.0 Response Format
+Add helper function to `main.py`:
+
+```python
+def create_response(result, request_id=1):
+    """Create JSON-RPC 2.0 compliant response"""
+    return {
+        "jsonrpc": "2.0",
+        "result": result,
+        "id": request_id
+    }
+
+def create_error_response(error_code, error_message, request_id=1):
+    """Create JSON-RPC 2.0 error response"""
+    return {
+        "jsonrpc": "2.0",
+        "error": {
+            "code": error_code,
+            "message": error_message
+        },
+        "id": request_id
+    }
+```
+
+#### Step 0.5: Deliverables Checklist
+- [ ] HTTP server running on specified port (default 8101)
+- [ ] `/mcp` endpoint accepting POST requests
+- [ ] Basic routing to 3 tool handlers (stubs are okay for now)
+- [ ] JSON-RPC 2.0 response format implemented
+- [ ] Server can be tested with curl commands
+- [ ] No crashes or errors on startup
+
+**Once Phase 0 is complete**, you have the basic MCP server infrastructure. The actual game logic, strategy, and protocol compliance will be implemented in later phases.
+
+---
 
 ### Phase 1: Understanding & Planning (Day 1)
 
@@ -1564,6 +1888,130 @@ Your work will be evaluated with the same level of scrutiny you claim in your se
 - **DON'T**: Create visualizations without labels/legends
 - **DO**: Make graphs publication-quality with clear captions
 
+### MCP Protocol Implementation (Even/Odd League Assignment)
+
+#### Timestamp Errors
+**❌ WRONG:**
+```python
+from datetime import datetime
+timestamp = datetime.now().isoformat()  # Local timezone!
+timestamp = "2025-01-15T10:30:00+02:00"  # Not UTC!
+timestamp = "2025-01-15T10:30:00"  # No timezone indicator!
+```
+
+**✅ CORRECT:**
+```python
+from datetime import datetime
+timestamp = datetime.utcnow().isoformat() + "Z"  # "2025-01-15T10:30:00.123456Z"
+```
+
+#### Parity Choice Errors
+**❌ WRONG:**
+```python
+return {"parity_choice": "Even"}  # Capital E!
+return {"parity_choice": "ODD"}   # All caps!
+return {"parity_choice": 0}       # Number instead of string!
+```
+
+**✅ CORRECT:**
+```python
+return {"parity_choice": "even"}  # lowercase only
+return {"parity_choice": "odd"}   # lowercase only
+```
+
+#### Auth Token Errors
+**❌ WRONG:**
+```python
+# Forgetting to save token after registration
+response = register_to_league()
+# ... token is lost!
+
+# Not including token in subsequent messages
+params = {
+    "message_type": "CHOOSE_PARITY_RESPONSE",
+    "parity_choice": "even"
+    # Missing auth_token!
+}
+```
+
+**✅ CORRECT:**
+```python
+# Save token from registration
+response = register_to_league()
+self.auth_token = response["result"]["auth_token"]
+
+# Include in all messages after registration
+params = {
+    "protocol": "league.v2",
+    "message_type": "CHOOSE_PARITY_RESPONSE",
+    "sender": f"player:{self.player_id}",
+    "auth_token": self.auth_token,  # ← Critical!
+    "parity_choice": "even"
+}
+```
+
+#### Timeout Violations
+**❌ WRONG:**
+```python
+def choose_parity(params):
+    # Expensive LLM call that takes 45 seconds
+    result = llm_api.generate(prompt)  # TIMEOUT!
+    return {"parity_choice": result}
+```
+
+**✅ CORRECT:**
+```python
+import asyncio
+
+async def choose_parity(params):
+    # Set timeout for LLM call
+    try:
+        result = await asyncio.wait_for(
+            llm_api.generate_async(prompt),
+            timeout=25  # Leave 5s buffer from 30s limit
+        )
+        return {"parity_choice": result}
+    except asyncio.TimeoutError:
+        # Fallback to quick strategy
+        import random
+        return {"parity_choice": random.choice(["even", "odd"])}
+```
+
+#### JSON Structure Errors
+**❌ WRONG:**
+```python
+# Missing required fields
+return {
+    "message_type": "GAME_JOIN_ACK",
+    "accept": True
+    # Missing: protocol, sender, timestamp, conversation_id, match_id, player_id, arrival_timestamp!
+}
+
+# Wrong field names
+return {
+    "msg_type": "GAME_JOIN_ACK",  # Should be message_type
+    "player": "P01",               # Should be player_id
+}
+```
+
+**✅ CORRECT:**
+```python
+from datetime import datetime
+
+return {
+    "protocol": "league.v2",
+    "message_type": "GAME_JOIN_ACK",
+    "sender": f"player:{self.player_id}",
+    "timestamp": datetime.utcnow().isoformat() + "Z",
+    "conversation_id": params["conversation_id"],  # Echo from invitation
+    "auth_token": self.auth_token,
+    "match_id": params["match_id"],
+    "player_id": self.player_id,
+    "arrival_timestamp": datetime.utcnow().isoformat() + "Z",
+    "accept": True
+}
+```
+
 ---
 
 ## Quick Reference Table
@@ -1598,6 +2046,10 @@ Your work will be evaluated with the same level of scrutiny you claim in your se
 | **Building Block Code** | 15 | 40% | `src/my_project/core/` | Classes with clear responsibilities |
 | **Prompts Book** | Special | - | `docs/PROMPTS_BOOK.md` | All AI prompts documented |
 | **Self-Assessment** | Special | - | Submission form | Honest evaluation |
+| **MCP Server** | HW7 | - | `agents/player/main.py` | HTTP server, /mcp endpoint, JSON-RPC 2.0 |
+| **Player Tools** | HW7 | - | `agents/player/handlers.py` | 3 tools: handle_game_invitation, choose_parity, notify_match_result |
+| **Strategy Module** | HW7 | - | `agents/player/strategy.py` | Random/History/LLM-based strategy |
+| **Protocol Compliance** | HW7 | - | All agent files | UTC timestamps, lowercase parity, auth_token, timeouts |
 
 ---
 
@@ -1685,6 +2137,56 @@ Your work will be evaluated with the same level of scrutiny you claim in your se
 - [ ] Honest evaluation (not inflated)
 - [ ] Evidence provided for each claim
 - [ ] Conservative if uncertain
+
+### MCP Protocol Compliance (Even/Odd League Assignment)
+- [ ] Player agent runs HTTP server on specified port
+- [ ] `/mcp` endpoint accepts POST requests
+- [ ] All 3 tools implemented correctly:
+  - [ ] `handle_game_invitation` → returns GAME_JOIN_ACK
+  - [ ] `choose_parity` → returns CHOOSE_PARITY_RESPONSE
+  - [ ] `notify_match_result` → updates internal state and acknowledges
+- [ ] Response timeouts respected:
+  - [ ] GAME_JOIN_ACK within 5 seconds
+  - [ ] CHOOSE_PARITY_RESPONSE within 30 seconds
+  - [ ] All other responses within 10 seconds
+- [ ] All timestamps in UTC/GMT (ISO-8601 format with 'Z' suffix)
+- [ ] parity_choice is lowercase: "even" or "odd" (NEVER "Even" or "ODD")
+- [ ] auth_token included in all messages after registration
+- [ ] JSON structures match Chapter 4 examples exactly
+- [ ] Message envelope contains all required fields:
+  - [ ] protocol: "league.v2"
+  - [ ] message_type (correct value for each message)
+  - [ ] sender (format: "player:P01")
+  - [ ] timestamp (UTC with 'Z')
+  - [ ] conversation_id (echoed from incoming message)
+- [ ] Successfully registered to League Manager (received player_id and auth_token)
+- [ ] Tested in local league with 4 player copies
+- [ ] All matches complete without crashes or timeouts
+- [ ] Compatible with other students' agents (if tested)
+- [ ] State management working (tracks wins/losses/draws correctly)
+- [ ] Error handling for all edge cases:
+  - [ ] Network errors (connection refused, timeouts)
+  - [ ] Malformed messages (missing fields, wrong types)
+  - [ ] Timeout scenarios (fallback strategies implemented)
+  - [ ] Invalid game states
+
+### Even/Odd League Submission
+- [ ] Source code of Player Agent submitted
+- [ ] README with installation and running instructions
+- [ ] README includes:
+  - [ ] Dependencies installation (`pip install -r requirements.txt` or `pip install -e .`)
+  - [ ] How to start agent (`python main.py --port 8101`)
+  - [ ] Configuration options (display name, strategy type, etc.)
+  - [ ] Example usage with curl or test commands
+- [ ] Detailed report written including:
+  - [ ] Full architecture and implementation description
+  - [ ] Strategy choice and rationale (random/history/LLM)
+  - [ ] Difficulties encountered and solutions found
+  - [ ] Development and testing process documentation
+  - [ ] Conclusions and recommendations for improvement
+- [ ] Link to public repository provided
+- [ ] Manual report submitted to exercises checker
+- [ ] Agent tested and verified working before submission
 
 ---
 
