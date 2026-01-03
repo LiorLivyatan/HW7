@@ -60,10 +60,13 @@ data/processed/*
 !data/processed/.gitkeep
 
 # Results (can regenerate)
+# NOTE: Sample demonstration results are committed for evaluation purposes
 results/experiments/*
 !results/experiments/.gitkeep
+!results/experiments/experiment_*.json
 results/visualizations/*
 !results/visualizations/.gitkeep
+!results/visualizations/*.png
 
 # Logs
 *.log
@@ -75,3 +78,5 @@ Thumbs.db
 
 # Project specific
 # TODO: Add project-specific ignores
+evaluation_results/
+extract_guide.py
