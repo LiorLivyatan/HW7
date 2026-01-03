@@ -99,11 +99,9 @@ class RegistrationClient:
             >>> print(f"Registered! Token: {token}")
         """
         logger.info(
-            "Registering with League Manager",
-            player_id=player_id,
-            display_name=display_name,
-            callback_url=callback_url,
-            league_manager_url=self.league_manager_url
+            f"Registering with League Manager - player_id={player_id}, "
+            f"display_name={display_name}, callback_url={callback_url}, "
+            f"league_manager_url={self.league_manager_url}"
         )
 
         # Build registration message
@@ -138,9 +136,8 @@ class RegistrationClient:
                 auth_token = data["result"].get("auth_token")
                 if auth_token:
                     logger.info(
-                        "Registration successful",
-                        player_id=player_id,
-                        token_preview=auth_token[:8] + "..."
+                        f"Registration successful - player_id={player_id}, "
+                        f"token_preview={auth_token[:8]}..."
                     )
                     return auth_token
                 else:
@@ -153,16 +150,12 @@ class RegistrationClient:
 
         except httpx.HTTPError as e:
             logger.error(
-                "Registration request failed",
-                player_id=player_id,
-                error=str(e)
+                f"Registration request failed - player_id={player_id}, error={str(e)}"
             )
             raise
 
         except Exception as e:
             logger.error(
-                "Registration error",
-                player_id=player_id,
-                error=str(e)
+                f"Registration error - player_id={player_id}, error={str(e)}"
             )
             raise

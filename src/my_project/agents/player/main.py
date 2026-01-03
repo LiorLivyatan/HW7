@@ -37,6 +37,7 @@ sys.path.insert(0, str(project_root))
 
 import uvicorn
 from dotenv import load_dotenv
+from my_project.utils.console import print_startup_banner, console
 
 from my_project.agents.player.state import PlayerState
 from my_project.agents.player.strategy import StrategyEngine
@@ -151,10 +152,8 @@ def main():
         log_format=os.getenv("LOG_FORMAT", "json")
     )
 
-    logger.info(
-        "=" * 60 +
-        "\n🎮 Starting Even/Odd League Player Agent\n" +
-        "=" * 60,
+    # Display startup banner with rich formatting
+    print_startup_banner(
         player_id=args.player_id,
         display_name=args.display_name,
         port=args.port,
@@ -177,7 +176,7 @@ def main():
             mode=args.strategy,
             gemini_model_id=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
             temperature=float(os.getenv("GEMINI_TEMPERATURE", "0.7")),
-            max_tokens=int(os.getenv("GEMINI_MAX_TOKENS", "100")),
+            max_output_tokens=int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "100")),
             llm_timeout=int(os.getenv("LLM_TIMEOUT", "25"))
         )
 
@@ -187,21 +186,8 @@ def main():
         logger.info("Creating FastAPI application...")
         app = create_app(handlers)
 
-        logger.info(
-            "\n" + "=" * 60 +
-            f"\n✅ Player Agent ready!\n" +
-            "=" * 60 +
-            f"\n\nServer running at: http://{args.host}:{args.port}\n" +
-            f"MCP Endpoint: http://{args.host}:{args.port}/mcp\n" +
-            f"API Docs: http://{args.host}:{args.port}/docs\n" +
-            f"Health Check: http://{args.host}:{args.port}/health\n" +
-            f"Player Stats: http://{args.host}:{args.port}/stats\n\n" +
-            f"Player ID: {args.player_id}\n" +
-            f"Display Name: {args.display_name}\n" +
-            f"Strategy: {args.strategy}\n\n" +
-            "Press CTRL+C to stop\n" +
-            "=" * 60
-        )
+        console.print("✅ [bold green]Player Agent ready![/bold green]")
+        console.print("[dim]Waiting for game invitations... Press CTRL+C to stop[/dim]\n")
 
         # Run server
         uvicorn.run(
@@ -218,7 +204,7 @@ def main():
         sys.exit(0)
 
     except Exception as e:
-        logger.error(f"Fatal error starting server", error=str(e), exc_info=True)
+        logger.error(f"Fatal error starting server: {str(e)}", exc_info=True)
         sys.exit(1)
 
 

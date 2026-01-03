@@ -97,7 +97,7 @@ class StrategyEngine:
         mode: str = "hybrid",
         gemini_model_id: str = "gemini-2.0-flash-exp",
         temperature: float = 0.7,
-        max_tokens: int = 100,
+        max_output_tokens: int = 100,
         llm_timeout: int = 25,  # 5-second buffer from 30s protocol timeout
         system_prompt: Optional[str] = None
     ):
@@ -108,7 +108,7 @@ class StrategyEngine:
             mode: Strategy mode - "random", "llm", or "hybrid"
             gemini_model_id: Gemini model ID (default: free tier flash model)
             temperature: LLM temperature 0.0 (deterministic) to 1.0 (creative)
-            max_tokens: Maximum response length
+            max_output_tokens: Maximum response length
             llm_timeout: Timeout for LLM response in seconds (MUST be < 30)
             system_prompt: Optional custom system prompt (uses default if None)
 
@@ -156,7 +156,7 @@ class StrategyEngine:
                 self.agent = self._create_agent(
                     gemini_model_id,
                     temperature,
-                    max_tokens,
+                    max_output_tokens,
                     system_prompt
                 )
 
@@ -166,7 +166,7 @@ class StrategyEngine:
         self,
         model_id: str,
         temperature: float,
-        max_tokens: int,
+        max_output_tokens: int,
         system_prompt: Optional[str]
     ) -> Agent:
         """
@@ -175,7 +175,7 @@ class StrategyEngine:
         Args:
             model_id: Gemini model ID
             temperature: LLM temperature
-            max_tokens: Max response tokens
+            max_output_tokens: Max response tokens
             system_prompt: System instructions
 
         Returns:
@@ -188,7 +188,7 @@ class StrategyEngine:
             model=Gemini(
                 id=model_id,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_output_tokens=max_output_tokens
             ),
             output_schema=ParityChoice,  # Ensures structured output
             instructions=system_prompt,

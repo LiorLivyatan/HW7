@@ -35,12 +35,21 @@ References:
 
 from typing import Dict, Any
 import asyncio
+import time
 
 from .state import PlayerState
 from .strategy import StrategyEngine
 from ...core.protocol import ProtocolMessageBuilder
 from ...utils.logger import setup_logger
 from ...utils.timestamp import utc_now
+from ...utils.console import (
+    print_game_invitation,
+    print_parity_thinking,
+    print_parity_choice,
+    print_match_result,
+    print_stats_summary,
+    print_error
+)
 
 logger = setup_logger(__name__)
 
@@ -159,12 +168,14 @@ class ToolHandlers:
             Assignment Chapter 4: GAME_JOIN_ACK structure
             config.yaml: timeouts.game_invitation_response = 5
         """
-        start_time = utc_now()
+        start_time = time.time()
         conversation_id = params.get("conversation_id", "unknown")
         match_id = params.get("match_id", "unknown")
         opponent_id = params.get("opponent_id", "unknown")
+        game_type = params.get("game_type", "even_odd")
+        deadline = params.get("deadline", "")
 
-        logger.info(f"Game invitation received - match_id={match_id}, opponent_id={opponent_id}, deadline={params.get('deadline')}")
+        logger.info(f"Game invitation received - match_id={match_id}, opponent_id={opponent_id}, deadline={deadline}")
 
         try:
             # Update auth token in protocol builder if state was registered
@@ -179,7 +190,20 @@ class ToolHandlers:
                 accept=True
             )
 
-            logger.info(f"Game invitation accepted - match_id={match_id}, response_time=<5s, accepted=True")
+            # Calculate response time
+            response_time = time.time() - start_time
+
+            # Display invitation with rich formatting
+            print_game_invitation(
+                match_id=match_id,
+                opponent_id=opponent_id,
+                game_type=game_type,
+                deadline=deadline,
+                accepted=True,
+                response_time=response_time
+            )
+
+            logger.info(f"Game invitation accepted - match_id={match_id}, response_time={response_time:.2f}s, accepted=True")
 
             return response
 
@@ -245,7 +269,7 @@ class ToolHandlers:
             CLAUDE.md line 1920: Pitfall #2 - Parity Choice Capitalized
             config.yaml: timeouts.parity_choice_response = 30
         """
-        start_time = utc_now()
+        start_time = time.time()
         conversation_id = params.get("conversation_id", "unknown")
         match_id = params.get("match_id", "unknown")
         opponent_id = params.get("opponent_id", "unknown")
@@ -253,6 +277,14 @@ class ToolHandlers:
         deadline = params.get("deadline")
 
         logger.info(f"Parity choice requested - match_id={match_id}, opponent_id={opponent_id}, deadline={deadline}")
+
+        # Display parity choice context with rich formatting
+        print_parity_thinking(
+            match_id=match_id,
+            opponent_id=opponent_id,
+            standings=standings,
+            strategy_mode=self.strategy.mode
+        )
 
         try:
             # Build context for strategy engine
@@ -280,7 +312,17 @@ class ToolHandlers:
                 parity_choice=parity_choice
             )
 
-            logger.info(f"Parity choice made - match_id={match_id}, choice={parity_choice}, response_time=<30s")
+            # Calculate response time and display choice
+            response_time = time.time() - start_time
+            used_llm = self.strategy.mode in ["llm", "hybrid"]
+
+            print_parity_choice(
+                choice=parity_choice,
+                response_time=response_time,
+                used_llm=used_llm
+            )
+
+            logger.info(f"Parity choice made - match_id={match_id}, choice={parity_choice}, response_time={response_time:.2f}s")
 
             return response
 
@@ -355,12 +397,13 @@ class ToolHandlers:
             Assignment Chapter 4: GAME_OVER structure
             config.yaml: timeouts.match_result_ack = 10
         """
-        start_time = utc_now()
+        start_time = time.time()
         conversation_id = params.get("conversation_id", "unknown")
         match_id = params.get("match_id", "unknown")
         winner = params.get("winner")
         drawn_number = params.get("drawn_number", 0)
         choices = params.get("choices", {})
+        opponent_id = params.get("opponent_id", "unknown")
 
         logger.info(f"Match result received - match_id={match_id}, winner={winner}, drawn_number={drawn_number}, choices={choices}")
 
@@ -375,10 +418,43 @@ class ToolHandlers:
                 status="acknowledged"
             )
 
-            # Log updated stats
+            # Get stats and determine points earned
             stats = self.state.get_stats()
-            result_str = "win" if winner == self.state.player_id else ("draw" if winner is None else "loss")
-            logger.info(f"Match result processed - match_id={match_id}, result={result_str}, stats={stats}, response_time=<10s")
+            my_player_id = self.state.player_id
+            my_choice = choices.get(my_player_id, "unknown")
+            opponent_choice = choices.get(opponent_id, "unknown")
+
+            # Calculate points earned
+            if winner == my_player_id:
+                points_earned = 3
+            elif winner is None:
+                points_earned = 1
+            else:
+                points_earned = 0
+
+            # Display match result with rich formatting
+            print_match_result(
+                match_id=match_id,
+                drawn_number=drawn_number,
+                my_choice=my_choice,
+                opponent_choice=opponent_choice,
+                my_player_id=my_player_id,
+                opponent_id=opponent_id,
+                winner=winner,
+                points_earned=points_earned
+            )
+
+            # Display updated stats
+            print_stats_summary(
+                wins=stats["wins"],
+                losses=stats["losses"],
+                draws=stats["draws"],
+                total_points=stats["total_points"],
+                matches_played=stats["total_matches"]
+            )
+
+            result_str = "win" if winner == my_player_id else ("draw" if winner is None else "loss")
+            logger.info(f"Match result processed - match_id={match_id}, result={result_str}, stats={stats}")
 
             return response
 
