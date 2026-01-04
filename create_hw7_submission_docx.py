@@ -882,20 +882,31 @@ These results validate our architectural decision to use hybrid strategy: intere
 
     add_heading(doc, 'Visualizations', level=2)
 
-    add_paragraph(doc, 'We generated publication-quality visualizations (300 DPI) in results/visualizations/:', bold=True)
+    add_paragraph(doc, 'We generated publication-quality visualizations (300 DPI) included below:', bold=True)
     doc.add_paragraph()
 
-    visualizations = [
-        'win_rate_analysis.png - Stacked bar chart showing win/draw/loss distribution across strategies. Demonstrates approximately 25% win rate for all strategies.',
+    # Figure 1: Win Rate Analysis
+    add_heading(doc, 'Figure 1: Win Rate Analysis', level=3)
+    add_paragraph(doc, 'Stacked bar chart showing win/draw/loss distribution across strategies. Demonstrates approximately 25% win rate for all strategies, confirming Even/Odd is pure chance.', italic=True)
+    doc.add_paragraph()
+    add_image_if_exists(doc, 'results/visualizations/win_rate_analysis.png', width=6.0,
+                        caption='Figure 1: Win/Draw/Loss distribution across three strategies')
+    doc.add_paragraph()
 
-        'response_time_analysis.png - Bar chart with error bars showing average, median, and 95th percentile response times. Random: <1ms, LLM: 2.4s avg (max 4.8s), Hybrid: 2.3s avg (max 4.5s).',
+    # Figure 2: Response Time Analysis
+    add_heading(doc, 'Figure 2: Response Time Analysis', level=3)
+    add_paragraph(doc, 'Bar chart with error bars showing average, median, and 95th percentile response times. Random: <1ms, LLM: 2.4s avg (max 4.8s), Hybrid: 2.3s avg (max 4.5s). All well within 30-second protocol limit.', italic=True)
+    doc.add_paragraph()
+    add_image_if_exists(doc, 'results/visualizations/response_time_analysis.png', width=6.0,
+                        caption='Figure 2: Response time comparison across strategies')
+    doc.add_paragraph()
 
-        'choice_distribution.png - Pie charts showing even/odd choice patterns. All strategies show approximately 50/50 split, confirming unbiased choice generation.'
-    ]
-
-    for viz in visualizations:
-        add_bullet(doc, viz)
-
+    # Figure 3: Choice Distribution
+    add_heading(doc, 'Figure 3: Choice Distribution', level=3)
+    add_paragraph(doc, 'Pie charts showing even/odd choice patterns. All strategies show approximately 50/50 split, confirming unbiased choice generation and proper randomness.', italic=True)
+    doc.add_paragraph()
+    add_image_if_exists(doc, 'results/visualizations/choice_distribution.png', width=6.0,
+                        caption='Figure 3: Even vs Odd choice distribution across strategies')
     doc.add_paragraph()
 
     add_heading(doc, 'Research Conclusions', level=2)
